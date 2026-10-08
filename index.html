@@ -355,7 +355,7 @@ async function streamReply(text){
     if (PROXY){
       const res = await fetch(PROXY, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(Object.assign({ model: MODEL }, body)),
         signal: streamCtrl.signal
       });
@@ -364,7 +364,11 @@ async function streamReply(text){
         try { const t = await res.text(); if (t && t.trim()) msg = t.slice(0, 200); } catch(e){}
         throw new Error(msg);
       }
-      parseSse(await res.text(), onEvent);
+      const raw = await res.text();
+      parseSse(raw, onEvent);
+      if (!full){
+        throw new Error('Proxy sent no usable reply. ' + (raw.trim() ? 'Recv: ' + raw.trim().slice(0, 160).replace(/\s+/g, ' ') : '(empty response body)'));
+      }
     } else {
     const res = await fetch(geminiUrl(MODEL), {
       method: 'POST',
@@ -404,7 +408,7 @@ async function streamReply(text){
     }
   } catch(err){
     if (err.name === 'AbortError'){ done = true; }
-    else { bubbleEl.classList.add('error-bubble'); bubbleEl.innerHTML = esc('⚠ ' + err.message) + '<br><span class="sys-note">Check your API key in Settings, or your network connection.</span>'; }
+    else { bubbleEl.classList.add('error-bubble'); bubbleEl.innerHTML = esc('⚠ ' + err.message) + '<br><span class="sys-note">This network may be blocking the AI relay. If the text above says "Failed to fetch", that is a filter/CORS block — not a key problem.</span>'; }
   }
   if (!done){
     done = true;
