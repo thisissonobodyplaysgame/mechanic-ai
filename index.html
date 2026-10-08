@@ -211,7 +211,7 @@
 <div id="modal">
   <div class="modal-box">
     <h2>Settings</h2>
-    <div class="sub">Mechanic AI is powered by Google&rsquo;s Gemini models through your own API key. Your key stays in this browser only.</div>
+    <div class="sub">Mechanic AI is powered by Google&rsquo;s Gemini models through a shared API key. Your key stays in this browser only.</div>
     <div class="field">
       <label>Gemini API key</label>
       <input type="password" id="keyInput" placeholder="AIza…" autocomplete="off">
@@ -220,9 +220,7 @@
     <div class="field">
       <label>Model</label>
       <select id="modelInput">
-        <option value="gemini-2.0-flash">gemini-2.0-flash (fast)</option>
-        <option value="gemini-2.0-flash-lite">gemini-2.0-flash-lite (light)</option>
-        <option value="gemini-1.5-flash">gemini-1.5-flash</option>
+        <option value="gemini-3.8-flash">gemini-3.8-flash</option>
       </select>
     </div>
     <div class="modal-actions">
@@ -243,8 +241,8 @@ let streamCtrl = null;      // AbortController
 let streaming = false;
 
 /* ---------- storage ---------- */
-const KEY  = localStorage.getItem('mechanic_key')  || '';
-let MODEL  = localStorage.getItem('mechanic_model') || 'gemini-2.0-flash';
+const KEY  = localStorage.getItem('mechanic_key') || '';
+let MODEL  = localStorage.getItem('mechanic_model') || 'gemini-3.8-flash';
 
 /* ---------- render stack ---------- */
 function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
