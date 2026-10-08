@@ -243,6 +243,7 @@ let streaming = false;
 /* ---------- storage ---------- */
 const KEY  = localStorage.getItem('mechanic_key') || '';
 let MODEL  = localStorage.getItem('mechanic_model') || 'gemini-3.8-flash';
+const PROXY = 'https://script.google.com/macros/s/AKfycbwVJF_L4BiAuKItbtBrYlwVxP1qRrB7TvVd3jYS6j4uyEIafC2u5cGqshlHQQ5aN_rV/exec'; /* Apps Script proxy URL (keeps the key server-side). Empty = direct calls with KEY. */
 
 /* ---------- render stack ---------- */
 function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
@@ -295,7 +296,7 @@ function renderEmpty(){
   chatArea.innerHTML = '';
   const e = document.createElement('div');
   e.id = 'emptyState';
-  if (!KEY){
+  if (!KEY && !PROXY){
     e.innerHTML = `
       <div class="eyebrow">// NO KEY INSTALLED</div>
       <h1>Power up your Mechanic.</h1>
@@ -350,6 +351,21 @@ async function streamReply(text){
   setComposerState(false);
   let full = '', done = false;
   try {
+    const onEvent = b => { if (b) { full = b; bubbleEl.innerHTML = renderMd(full); scrollBottom(); } };
+    if (PROXY){
+      const res = await fetch(PROXY, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(Object.assign({ model: MODEL }, body)),
+        signal: streamCtrl.signal
+      });
+      if (!res.ok){
+        let msg = 'proxy HTTP ' + res.status;
+        try { const t = await res.text(); if (t && t.trim()) msg = t.slice(0, 200); } catch(e){}
+        throw new Error(msg);
+      }
+      parseSse(await res.text(), onEvent);
+    } else {
     const res = await fetch(geminiUrl(MODEL), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -385,6 +401,7 @@ async function streamReply(text){
       });
     }
     if (event.length) handleEvent(event.join('\n'), b => { if (b) { full = b; bubbleEl.innerHTML = renderMd(full); scrollBottom(); } });
+    }
   } catch(err){
     if (err.name === 'AbortError'){ done = true; }
     else { bubbleEl.classList.add('error-bubble'); bubbleEl.innerHTML = esc('⚠ ' + err.message) + '<br><span class="sys-note">Check your API key in Settings, or your network connection.</span>'; }
@@ -415,12 +432,29 @@ function handleEvent(dataJson, cb){
   } catch(e){}
 }
 
+/* parse a complete SSE body (used when a proxy returns the whole response at once) */
+function parseSse(text, cb){
+  text = (text || '').trim();
+  if (!text) return;
+  if (text.startsWith('{')){ handleEvent(text, cb); return; }
+  let event = [];
+  const flush = () => { if (event.length){ handleEvent(event.join('\n'), cb); event = []; } };
+  for (const ln of text.split('\n')){
+    if (ln === ''){ flush(); continue; }
+    if (ln.startsWith('data:')){
+      const payload = ln.slice(5).trim().replace(/^ /, '');
+      if (payload === '[DONE]'){ flush(); } else event.push(payload);
+    }
+  }
+  flush();
+}
+
 /* ---------- sending ---------- */
 function send(text){
   text = (text || '').trim();
   if (!text) return;
   if (streaming){ return; }
-  if (!KEY){ openModal(); return; }
+  if (!KEY && !PROXY){ openModal(); return; }
   messages.push({ role: 'user', text });
   renderAll();
   $('input').value = '';
